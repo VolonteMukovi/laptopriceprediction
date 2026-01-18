@@ -1,7 +1,24 @@
 import os
+import sys
 import joblib
 import pandas as pd
 from flask import Flask, render_template, request, jsonify
+
+# Vérifier la version de Python
+if sys.version_info < (3, 9):
+    print("=" * 60)
+    print("❌ ERREUR: Python 3.9 ou supérieur est requis!")
+    print("=" * 60)
+    print(f"Version Python actuelle: {sys.version}")
+    print("\nLe modèle nécessite numpy 2.x qui requiert Python 3.9+")
+    print("\nSolutions:")
+    print("1. Mettez à jour Python vers 3.9 ou supérieur")
+    print("2. Ou réentraînez le modèle avec numpy 1.x")
+    print("=" * 60)
+    sys.exit(1)
+
+# Afficher la version Python pour vérification
+print(f"✅ Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro} détecté")
 
 app = Flask(__name__)
 
@@ -11,10 +28,14 @@ model = None
 
 def load_model():
     """Charge le modèle de prédiction"""
+    import warnings
     global model
     if model is None:
         try:
-            model = joblib.load(MODEL_PATH)
+            # Ignorer les warnings de version sklearn lors du chargement
+            with warnings.catch_warnings():
+                warnings.filterwarnings('ignore', category=UserWarning)
+                model = joblib.load(MODEL_PATH)
             print(f"✅ Modèle chargé avec succès depuis {MODEL_PATH}")
         except FileNotFoundError:
             print(f"❌ Erreur: Le fichier {MODEL_PATH} n'a pas été trouvé")

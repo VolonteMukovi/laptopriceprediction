@@ -11,8 +11,10 @@ Application Flask pour prédire le prix d'un ordinateur portable en fonction de 
 
 ## 📋 Prérequis
 
-- Python 3.8 ou supérieur
+- **Python 3.9 ou supérieur** (nécessaire pour numpy 2.x)
 - pip (gestionnaire de paquets Python)
+
+> ⚠️ **Important**: Ce modèle nécessite numpy 2.x qui requiert Python 3.9+. Si vous utilisez Python 3.8, vous devez mettre à jour Python.
 
 ## 🔧 Installation Locale
 

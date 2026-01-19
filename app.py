@@ -23,7 +23,7 @@ print(f"✅ Python {sys.version_info.major}.{sys.version_info.minor}.{sys.versio
 app = Flask(__name__)
 
 # Charger le modèle au démarrage
-MODEL_PATH = 'laptop_price_model.pkl'
+MODEL_PATH = 'laptop_price_model_v2.pkl'
 model = None
 
 def load_model():
@@ -39,6 +39,7 @@ def load_model():
             print(f"✅ Modèle chargé avec succès depuis {MODEL_PATH}")
         except FileNotFoundError:
             print(f"❌ Erreur: Le fichier {MODEL_PATH} n'a pas été trouvé")
+            print("   Veuillez vous assurer que le fichier laptop_price_model_v2.pkl existe")
             raise
         except Exception as e:
             print(f"❌ Erreur lors du chargement du modèle: {str(e)}")
@@ -46,7 +47,10 @@ def load_model():
     return model
 
 # Charger le modèle au démarrage
-load_model()
+try:
+    load_model()
+except:
+    print("⚠️  Le modèle ne sera pas chargé au démarrage. Vérifiez le fichier.")
 
 @app.route('/')
 def index():
@@ -57,49 +61,44 @@ def index():
 def predict():
     """Endpoint pour la prédiction du prix"""
     try:
+        if model is None:
+            return jsonify({
+                'error': 'Le modèle n\'est pas chargé. Vérifiez que laptop_price_model_v2.pkl existe.'
+            }), 500
+        
         # Récupérer les données du formulaire
         data = request.get_json()
         
         # Vérifier que tous les champs requis sont remplis
-        required_fields = ['brand', 'processor', 'CPU', 'Ram', 'Ram_type', 
-                          'ROM', 'ROM_type', 'GPU', 'OS']
+        required_fields = ['Company', 'TypeName', 'CPU_Type', 'RAM', 'Memory', 'GPU_Type', 'Inches']
         for field in required_fields:
-            if not data.get(field, '').strip():
+            if not data.get(field, ''):
                 return jsonify({
                     'error': f'Le champ {field} est requis'
                 }), 400
         
-        # Vérifier les champs numériques
-        numeric_fields = ['spec_rating', 'display_size', 'resolution_width', 'resolution_height']
-        for field in numeric_fields:
-            value = data.get(field)
-            if value is None or value == '':
-                return jsonify({
-                    'error': f'Le champ {field} est requis et doit être un nombre'
-                }), 400
-            try:
-                float(value)
-            except (ValueError, TypeError):
-                return jsonify({
-                    'error': f'Le champ {field} doit être un nombre valide'
-                }), 400
-        
-        # Créer un dictionnaire avec les données
+        # Construire les données pour le modèle
         laptop_data = {
-            'brand': data.get('brand', '').lower().strip(),
-            'processor': data.get('processor', '').strip(),
-            'CPU': data.get('CPU', '').strip(),
-            'Ram': data.get('Ram', '').strip(),
-            'Ram_type': data.get('Ram_type', '').strip(),
-            'ROM': data.get('ROM', '').strip(),
-            'ROM_type': data.get('ROM_type', '').strip(),
-            'GPU': data.get('GPU', '').strip(),
-            'OS': data.get('OS', '').strip(),
-            'spec_rating': float(data.get('spec_rating')),
-            'display_size': float(data.get('display_size')),
-            'resolution_width': float(data.get('resolution_width')),
-            'resolution_height': float(data.get('resolution_height'))
+            'Company': str(data.get('Company', '')).strip(),
+            'TypeName': str(data.get('TypeName', '')).strip(),
+            'Inches': float(data.get('Inches', 0)),
+            'ScreenResolution': str(data.get('ScreenResolution', '')).strip(),
+            'CPU_Company': str(data.get('CPU_Company', 'Intel')).strip(),
+            'CPU_Type': str(data.get('CPU_Type', '')).strip(),
+            'CPU_Frequency (GHz)': float(data.get('CPU_Frequency', 2.0)),
+            'RAM (GB)': int(data.get('RAM', 0)),
+            'Memory': str(data.get('Memory', '')).strip(),
+            'GPU_Company': str(data.get('GPU_Company', 'Intel')).strip(),
+            'GPU_Type': str(data.get('GPU_Type', '')).strip(),
+            'OpSys': str(data.get('OpSys', 'Windows')).strip(),
+            'Weight (kg)': float(data.get('Weight', 2.0))
         }
+        
+        # Vérifier les valeurs numériques
+        if laptop_data['Inches'] <= 0:
+            return jsonify({'error': 'La taille d\'écran (Inches) doit être supérieure à 0'}), 400
+        if laptop_data['RAM (GB)'] <= 0:
+            return jsonify({'error': 'La RAM doit être supérieure à 0'}), 400
         
         # Convertir en DataFrame
         df = pd.DataFrame([laptop_data])
@@ -107,13 +106,13 @@ def predict():
         # Faire la prédiction
         predicted_price = model.predict(df)[0]
         
-        # Formater le prix
+        # Formater le prix (déjà en dollars)
         formatted_price = round(predicted_price, 2)
         
         return jsonify({
             'success': True,
             'predicted_price': formatted_price,
-            'message': f'Prix estimé: ₹{formatted_price:,.2f}'
+            'message': f'Prix estimé: ${formatted_price:,.2f} USD'
         })
         
     except ValueError as e:
@@ -136,4 +135,3 @@ def health():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
-
